@@ -114,35 +114,43 @@ class SuperSync(object):
             part_number = 1
             parts = []
             for chunk in self._lazy_load_helper(f):
+                lower = (part_number - 1) * self.chunk_size
+                upper = ((part_number * self.chunk_size) - 1) if part_number < self.part_count else (self.local_size - 1)
+                content_range = '{}-{}'.format(lower,upper)
                 sha512 = hashlib.sha3_512(chunk).hexdigest()
-                logger.debug('Part sha3-513'.format(sha512))
+                logger.debug('Part sha3-513: {}'.format(sha512))
                 blake2 = hashlib.blake2b(chunk).hexdigest()
-                logger.debug('Part blake2b'.format(blake2))
+                logger.debug('Part blake2b: {}'.format(blake2))
                 item = self._get_dynamo_item(sha512,blake2)
                 if item:
-                    source_bucket = item['locations']['L'][0]['M']['bucket']['S']
-                    source_key = item['locations']['L'][0]['M']['key']['S']
-                    source_version = item['locations']['L'][0]['M']['version']['S']
-                    source_part_number = item['locations']['L'][0]['M']['part']['N']
-                    resp = self._copy_part(source_bucket,source_key,source_version,source_part_number,part_number)
-                    parts.append(
-                        { 
-                            'ETag': resp['CopyPartResult']['ETag'],
-                            'PartNumber': part_number,
-                            'sha512': sha512,
-                            'blake2': blake2
-                        }
+                    first_location = item['locations']['L'][0]['M']
+                    source_bucket = first_location['bucket']['S']
+                    source_key = first_location['key']['S']
+                    source_version = first_location['version']['S']
+                    source_part_number = first_location['part']['N']
+                    source_range = first_location['content_range']['S']
+                    resp = self._copy_part(
+                        source_bucket,
+                        source_key,
+                        source_version,
+                        source_part_number,
+                        source_range,
+                        part_number
                     )
+                    etag = resp['CopyPartResult']['ETag']
                 else:
                     resp = self._upload_part(chunk,part_number)
-                    parts.append(
-                        { 
-                            'ETag': resp['ETag'],
-                            'PartNumber': part_number,
-                            'sha512': sha512,
-                            'blake2': blake2
-                        }
-                    )
+                    etag = resp['ETag']
+                parts.append(
+                    { 
+                        'ETag': etag,
+                        'PartNumber': part_number,
+                        'sha512': sha512,
+                        'blake2': blake2,
+                        'content_range': content_range
+                   
+                    }
+                )
                 part_number += 1
         return parts
         
@@ -191,11 +199,7 @@ class SuperSync(object):
         logger.debug('Upload Part: {}'.format(resp))
         return resp
 
-    def _copy_part(self,source_bucket,source_key,source_version,source_part_number,part_number):
-        part_head = self._get_part_head(source_bucket,source_key,source_version,source_part_number)
-        source_range_header = part_head['ResponseMetadata']['HTTPHeaders']['content-range']
-        source_range = source_range_header.lstrip('bytes ').split('/')[0]
-        logger.debug(source_range)
+    def _copy_part(self,source_bucket,source_key,source_version,source_part_number,source_range,part_number):
         resp = self.client.upload_part_copy(
            Bucket=self.bucket,
            CopySource={
@@ -246,7 +250,8 @@ class SuperSync(object):
                     'key': {"S":self.key},
                     "part": {"N":str(item['PartNumber'])}, 
                     "version": {"S":self.version},
-                    "upload_id": {"S":self.upload_id}
+                    "upload_id": {"S":self.upload_id},
+                    "content_range": {"S":item['content_range']}
                 } } )
             else:
                 locations = [ {"M": {
@@ -255,7 +260,8 @@ class SuperSync(object):
                     'key': {"S":self.key},
                     "part": {"N":str(item['PartNumber'])}, 
                     "version": {"S":self.version},
-                    "upload_id": {"S":self.upload_id}
+                    "upload_id": {"S":self.upload_id},
+                    "content_range": {"S":item['content_range']}
                 } } ]
             self._put_dynamo_item(item['sha512'],item['blake2'],locations)
 
