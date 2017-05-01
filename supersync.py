@@ -264,11 +264,10 @@ class MetaDataStore(object):
 
 class SuperSync(object):
 
-    def __init__(self,profile,metadata_store,s3_wrapper,concurrency):
+    def __init__(self,profile,table_name,local,dest,concurrency):
         self.profile = profile
-        session = boto3.session.Session(profile_name=profile)
-        self.s3 = s3_wrapper
-        self.metadata = metadata_store
+        self.metadata = MetaDataStore(profile,table_name)
+        self.s3 = S3Wrapper(profile,local,dest)
         self.concurrency = concurrency
         self.local = self.s3.local
         self.dest = self.s3.dest
@@ -354,10 +353,9 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='Turn on log level debug')
     parser.add_argument('-p', '--profile', dest='profile', default='default', help='AWS Profile to use.')
     parser.add_argument('-c', '--concurrency', dest='concurrency', type=int, default=10, help='Number of processes to use.')
+    parser.add_argument('-t', '--table_name', dest='table_name', type=str, default='supersync', help='DynamoDB table name too use.')
     args = parser.parse_args()
     if args.debug:
         console_logger.setLevel(logging.DEBUG)
-    metadata_store = MetaDataStore(args.profile,'supersync')
-    s3_wrapper = S3Wrapper(args.profile,args.local,args.dest)
-    supersync = SuperSync(args.profile,metadata_store,s3_wrapper,args.concurrency)
+    supersync = SuperSync(args.profile,args.table_name,args.local,args.dest,args.concurrency)
     supersync.sync()
