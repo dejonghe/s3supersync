@@ -1,6 +1,6 @@
 import boto3
 import sys
-from logger import logging, logger, console_logger
+from lib.logger import logger
 
 class S3Wrapper(object):
     def __init__(self,profile,local,dest):

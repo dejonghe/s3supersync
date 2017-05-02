@@ -1,6 +1,6 @@
 import boto3
 from botocore.exceptions import ClientError
-from logger import logger
+from lib.logger import logger
 
 class MetaDataStore(object):
     def __init__(self,profile,table_name):

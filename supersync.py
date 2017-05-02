@@ -6,12 +6,12 @@ import math
 import os
 import sys
 from botocore.exceptions import ClientError
-from logger import logging, logger, console_logger
 from itertools import repeat
 from multiprocessing import Manager, Pool, Queue
 from random import randrange
-from metadatastore import MetaDataStore
-from s3wrapper import S3Wrapper
+from lib.logger import logging, logger, console_logger
+from lib.metadatastore import MetaDataStore
+from lib.s3wrapper import S3Wrapper
 
 KB = 1024
 MB = KB * KB
