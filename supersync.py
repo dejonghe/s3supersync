@@ -44,7 +44,9 @@ def process_part(
         logger.debug('{}: Part blake2b: {}'.format(pid,blake2))
         item = metadata.get_dynamo_item(sha512,blake2)
         if item:
-            index = randrange(0,(len(item['locations']['L']) - 1))
+            index = 0
+            if len(item['locations']['L']) > 1:
+                index = randrange(0,(len(item['locations']['L']) - 1))
             first_location = item['locations']['L'][index]['M']
             source_bucket = first_location['bucket']['S']
             source_key = first_location['key']['S']
