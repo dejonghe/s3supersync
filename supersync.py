@@ -86,13 +86,25 @@ class S3Wrapper(object):
         self.bucket = self._get_bucket(dest)
         self.key = self._get_key(dest)
         self.path = '{}/{}'.format(self.bucket,self.key)
+        self._check_or_create_bucket()
 
     def _get_bucket(self, dest):
+        bucket = dest.split('/')[2]
         return dest.split('/')[2]
 
     def _get_key(self, dest):
         keys = dest.split('/')[3:]
         return '/'.join(keys)
+
+    def _check_or_create_bucket(self):
+        found = False
+        resp = self.client.list_buckets()
+        for bucket in resp['Buckets']:
+            if bucket['Name'] == self.bucket:
+                found = True
+        if not found:
+            logger.critical('Bucket {} does not exist or is not owned by you.'.format(self.bucket))
+            exit(1)
 
     def get_object_metadata(self):
         try: 
@@ -235,6 +247,7 @@ class MetaDataStore(object):
                     assert key['AttributeName'] == 'blake2',\
                         'Partition key must be named blake2'
         except ClientError as e:
+            logger.debug('Table {} does not exist, Creating'.format(self.table_name))
             resp = self.dynamo.create_table(
                 AttributeDefinitions=[
                     {
