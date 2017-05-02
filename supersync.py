@@ -5,6 +5,7 @@ import hashlib
 import math
 import os
 import sys
+from botocore.exceptions import ClientError
 from optparse import OptionParser
 from logger import logging, logger, console_logger
 from itertools import repeat
@@ -215,9 +216,54 @@ class S3Wrapper(object):
 
 class MetaDataStore(object):
     def __init__(self,profile,table_name):
+        assert type(table_name) is str, "Table Name must be string type"
         session = boto3.session.Session(profile_name=profile)
         self.dynamo = session.client('dynamodb')
         self.table_name = table_name
+        self._check_or_create_table()
+
+    def _check_or_create_table(self):
+        try:
+            table = self.dynamo.describe_table(TableName=self.table_name)
+            assert len(table['Table']['KeySchema']) == 2,\
+                "Primary Key of {} must be composite key".format(self.table_name)
+            for key in table['Table']['KeySchema']:
+                if key['KeyType'] == 'HASH':
+                    assert key['AttributeName'] == 'sha3',\
+                        'Partition key must be named sha3'
+                if key['KeyType'] == 'RANGE':
+                    assert key['AttributeName'] == 'blake2',\
+                        'Partition key must be named blake2'
+        except ClientError as e:
+            resp = self.dynamo.create_table(
+                AttributeDefinitions=[
+                    {
+                        'AttributeName': 'blake2', 
+                        'AttributeType': 'S'
+                    }, 
+                    {
+                        'AttributeName': 'sha3', 
+                        'AttributeType': 'S'
+                    }
+                ],
+                TableName=self.table_name,
+                KeySchema=[
+                    {
+                        'AttributeName': 'sha3', 
+                        'KeyType': 'HASH'
+                    }, 
+                    {
+                        'AttributeName': 'blake2', 
+                        'KeyType': 'RANGE'
+                    }
+                ],
+                ProvisionedThroughput={
+                    'ReadCapacityUnits': 5,
+                    'WriteCapacityUnits': 5
+                }
+            )
+            waiter = self.dynamo.get_waiter('table_exists')
+            waiter.wait(TableName=self.table_name)
 
     def put_dynamo_item(self,part_sha3,part_blake2,locations):
         self.dynamo.put_item(
