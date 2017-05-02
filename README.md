@@ -23,12 +23,11 @@ Example item:
     {
       "bucket": "String",
       "key": "String",
-      "part": Int,
+      "part": "Int",
       "version": "String",
       "upload_id": "String",
       "content_range": "String"
-    },
-    ...
+    }
   ]
 }
 ```
