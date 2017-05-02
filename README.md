@@ -18,7 +18,7 @@ Example item:
 ``` JSON
 {
   "sha3": "HASH",
-  "blake2: "RANGE",
+  "blake2": "RANGE",
   "locations": [
     {
       "bucket": "String",
