@@ -1,6 +1,8 @@
 import boto3
+import logging
 import sys
-from lib.logger import logger
+
+logger = logging.getLogger('supersync')
 
 class S3Wrapper(object):
     def __init__(self,profile,local,dest):

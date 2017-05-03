@@ -65,4 +65,5 @@ optional arguments:
 5. Walk directory structures
 6. Support for files less than 5/8MB 
 7. Encryption Support
-8. Create indexer that will scan S3 and index what chunks already exist. 
+8. Create indexer that will scan S3 and index what chunks already exist
+9. Stats about how many chunks are deduplicated per item

@@ -1,6 +1,8 @@
 import boto3
 from botocore.exceptions import ClientError
-from lib.logger import logger
+import logging
+
+logger = logging.getLogger('supersync')
 
 class MetaDataStore(object):
     def __init__(self,profile,table_name):
