@@ -69,3 +69,22 @@ optional arguments:
 7. Encryption Support
 8. Create indexer that will scan S3 and index what chunks already exist
 9. Stats about how many chunks are deduplicated per item
+10. Status
+
+
+# Stats
+## 31GB Upload VMDK
+#### First Upload
+real	192m55.349s
+user	20m49.460s
+sys	3m5.912s
+#### No Change Upload @ 50 r/w Capacity w/ ~10 w/r used 10 concurrency 
+real	17m5.263s
+user	17m6.136s
+sys	0m58.500s
+#### Small Change Upload @ same perf as prior
+real	25m23.252s
+user	16m7.296s
+sys	1m6.892s
+
+
