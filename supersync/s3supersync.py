@@ -85,7 +85,7 @@ class S3SuperSync(object):
 
     def __init__(self,profile,table_name,local,dest,concurrency):
         self.profile = profile
-        self.metadata = MetaDataStore(profile,table_name)
+        self.metadata = MetaDataStore(profile,table_name,concurrency)
         self.s3 = S3Wrapper(profile,local,dest)
         self.concurrency = concurrency
         self.local = self.s3.local

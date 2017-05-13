@@ -70,6 +70,7 @@ optional arguments:
 8. Create indexer that will scan S3 and index what chunks already exist
 9. Stats about how many chunks are deduplicated per item
 10. Status
+11. Retry decorator
 
 
 # Stats

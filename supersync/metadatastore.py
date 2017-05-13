@@ -1,15 +1,39 @@
 import boto3
-from botocore.exceptions import ClientError
 import logging
+from botocore.exceptions import ClientError
+from itertools import repeat
+from multiprocessing import Manager, Pool, Queue
+
 
 logger = logging.getLogger('supersync')
 
+def upset_dynamo_item(profile,table_name,item,bucket,key,version,upload_id):
+    metadata = MetaDataStore(profile,table_name)
+    exists = metadata.get_dynamo_item(item['sha512'],item['blake2'])
+    part_metadata = {"M": {
+            'bucket': {"S":bucket},
+            'key': {"S":key},
+            "part": {"N":str(item['PartNumber'])}, 
+            "version": {"S":version},
+            "upload_id": {"S":upload_id},
+            "content_range": {"S":item['content_range']}
+    } }
+    if exists:
+        locations = exists['locations']['L']
+        locations.append(part_metadata)
+    else:
+        locations = [part_metadata]
+    metadata.put_dynamo_item(item['sha512'],item['blake2'],locations)
+    return True
+
 class MetaDataStore(object):
-    def __init__(self,profile,table_name):
+    def __init__(self,profile,table_name,concurrency=10):
         assert type(table_name) is str, "Table Name must be string type"
         session = boto3.session.Session(profile_name=profile)
+        self.concurrency = concurrency
         self.dynamo = session.client('dynamodb')
         self.table_name = table_name
+        self.profile = profile
         self._check_or_create_table()
 
     def _check_or_create_table(self):
@@ -81,20 +105,39 @@ class MetaDataStore(object):
         return None
 
     def push_dynamo_metadata(self,parts,bucket,key,version,upload_id):
-        for item in parts:
-            exists = self.get_dynamo_item(item['sha512'],item['blake2'])
-            part_metadata = {"M": {
-                    'bucket': {"S":bucket},
-                    'key': {"S":key},
-                    "part": {"N":str(item['PartNumber'])}, 
-                    "version": {"S":version},
-                    "upload_id": {"S":upload_id},
-                    "content_range": {"S":item['content_range']}
-            } }
-            if exists:
-                locations = exists['locations']['L']
-                locations.append(part_metadata)
-            else:
-                locations = [part_metadata]
-            self.put_dynamo_item(item['sha512'],item['blake2'],locations)
-
+        cap_need = (self.concurrency * 2) if self.concurrency > len(parts) else len(parts)
+        table_info = self.dynamo.describe_table(
+            TableName=self.table_name
+        )
+        write_exist = table_info['Table']['ProvisionedThroughput']['WriteCapacityUnits'] 
+        read_exist = table_info['Table']['ProvisionedThroughput']['ReadCapacityUnits'] 
+        if cap_need > write_exist and len(parts) > 1000:
+            self.dynamo.update_table(
+                TableName=self.table_name,
+                ProvisionedThroughput={
+                    'ReadCapacityUnits': cap_need,
+                    'WriteCapacityUnits': cap_need
+                }
+            )
+        with Pool(self.concurrency) as pool:
+            pool.starmap(
+                upset_dynamo_item,
+                zip(
+                    repeat(self.profile),
+                    repeat(self.table_name),
+                    parts,
+                    repeat(bucket),
+                    repeat(key),
+                    repeat(version),
+                    repeat(upload_id)
+                )
+            )
+        if cap_need > write_exist or cap_need > read_exist:
+            if len(parts) > 1000:
+                self.dynamo.update_table(
+                    TableName=self.table_name,
+                    ProvisionedThroughput={
+                        'ReadCapacityUnits': read_exist,
+                        'WriteCapacityUnits': write_exist
+                        }
+                    )
