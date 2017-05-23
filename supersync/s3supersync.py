@@ -3,6 +3,7 @@ import hashlib
 import logging
 import math
 import os
+import xxhash
 from botocore.exceptions import ClientError
 from itertools import repeat
 from multiprocessing import Manager, Pool, Queue
@@ -17,6 +18,16 @@ KB = 1024
 MB = KB * KB
 GB = MB * KB
 
+def hash_part(speed, chunk):
+    if speed == 'default':
+        hash1 = hashlib.sha3_512(chunk).hexdigest()
+        hash2 = hashlib.blake2b(chunk).hexdigest()
+    if speed == 'fast':
+        hash1 = xxhash.xxh64(chunk).hexdigest()
+        hash2 = '-'
+    return (hash1,hash2) 
+    
+
 def process_part(
         local,
         dest,
@@ -27,10 +38,13 @@ def process_part(
         upload_id,
         profile,
         table_name,
-        queue):
+        queue,
+        speed, 
+        hash_type1,
+        hash_type2):
     pid = os.getpid()
     part_number = part_number + 1
-    metadata = MetaDataStore(profile,table_name)
+    metadata = MetaDataStore(profile,table_name,speed,check_table=False)
     s3_wrapper = S3Wrapper(profile,local,dest)
     with open(local,'rb') as file_object:
         file_object.seek((part_number - 1) * chunk_size)
@@ -38,11 +52,10 @@ def process_part(
         lower = (part_number - 1) * chunk_size
         upper = ((part_number * chunk_size) - 1) if part_number < part_count else (local_size - 1)
         content_range = '{}-{}'.format(lower,upper)
-        sha512 = hashlib.sha3_512(chunk).hexdigest()
-        logger.debug('{}: Part sha3-513: {}'.format(pid,sha512))
-        blake2 = hashlib.blake2b(chunk).hexdigest()
-        logger.debug('{}: Part blake2b: {}'.format(pid,blake2))
-        item = metadata.get_dynamo_item(sha512,blake2)
+        hash1,hash2 = hash_part(speed,chunk)
+        logger.debug('{}: Part {}/{} {}: {}'.format(pid,part_number,part_count,hash_type1,hash1))
+        logger.debug('{}: Part {}/{} {}: {}'.format(pid,part_number,part_count,hash_type2,hash2))
+        item = metadata.get_dynamo_item(hash1,hash2)
         if item:
             index = 0
             if len(item['locations']['L']) > 1:
@@ -75,17 +88,19 @@ def process_part(
             { 
                 'ETag': etag,
                 'PartNumber': part_number,
-                'sha512': sha512,
-                'blake2': blake2,
+                hash_type1: hash1,
+                hash_type2: hash2,
                 'content_range': content_range
             }
         )
 
 class S3SuperSync(object):
 
-    def __init__(self,profile,table_name,local,dest,concurrency):
+    def __init__(self,profile,table_name,local,dest,concurrency,speed):
         self.profile = profile
-        self.metadata = MetaDataStore(profile,table_name,concurrency)
+        self.speed = speed
+        self.hash_type1, self.hash_type2 = self._get_hash_types(speed)
+        self.metadata = MetaDataStore(profile,table_name,speed,concurrency)
         self.s3 = S3Wrapper(profile,local,dest)
         self.concurrency = concurrency
         self.local = self.s3.local
@@ -123,6 +138,13 @@ class S3SuperSync(object):
         logger.debug('Part size determined: {}MB'.format(str(chunk_size/MB)))
         return chunk_size
         
+    def _get_hash_types(self, speed):
+        if speed == 'default':
+            return ('sha3','blake2')
+        elif speed == 'fast':
+            return ('xxhash','blank')
+        else:
+            raise('Unknown Speed Setting')
 
     def _get_part_count(self):
         unrounded = self.local_size / self.chunk_size
@@ -159,7 +181,10 @@ class S3SuperSync(object):
                     repeat(upload_id),
                     repeat(self.profile),
                     repeat(self.metadata.table_name),
-                    repeat(queue)
+                    repeat(queue),
+                    repeat(self.speed),
+                    repeat(self.hash_type1),
+                    repeat(self.hash_type2)
                 )
             )
             logger.debug('Parts processed, pool not closed')

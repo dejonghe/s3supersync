@@ -12,8 +12,11 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--profile', dest='profile', default='default', help='AWS Profile to use.')
     parser.add_argument('-c', '--concurrency', dest='concurrency', type=int, default=10, help='Number of processes to use.')
     parser.add_argument('-t', '--table_name', dest='table_name', type=str, default='supersync', help='DynamoDB table name too use.')
+    parser.add_argument('-s', '--speed', dest='speed', type=str, choices=['default','fast'], default='default', help='Hash speed option. Warning: fast hash may result in colisions and data coruption. Automatically adds speed type to table name because the attributes differ.')
     args = parser.parse_args()
     if args.debug:
         console_logger.setLevel(logging.DEBUG)
-    supersync = S3SuperSync(args.profile,args.table_name,args.local,args.dest,args.concurrency)
-    supersync.sync()
+    if args.speed != 'default':
+        args.table_name = args.table_name + '_' + args.speed
+    supersync = S3SuperSync(args.profile,args.table_name,args.local,args.dest,args.concurrency,args.speed)
+    supersync.sync()	

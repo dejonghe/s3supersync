@@ -57,7 +57,14 @@ optional arguments:
                         Number of processes to use.
   -t TABLE_NAME, --table_name TABLE_NAME
                         DynamoDB table name too use.
+  -s {default,fast}, --speed {default,fast}
+                        Hash speed option. Warning: fast hash may result in
+                        colisions and data coruption. Automatically adds speed
+                        type to table name because the attributes differ.
 ```
+
+# Fast Hash Warning
+I've implemented what looks like a faster hashing algorithm for when the hashing is a bottle neck. This hash is xxhash and is not a cryptographic hash and therefore more prone to colisions. *Also* when using fast hash there is only one hashing algorithm used which further increases the likelyhood of colisions. When using this option it is highly advised to use a separate table_name per item uploaded. 
 
 ## ToDo
 1. File locking for writes
