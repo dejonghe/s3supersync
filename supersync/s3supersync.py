@@ -80,7 +80,8 @@ def process_part(
             resp = s3_wrapper.upload_part(
                chunk,
                part_number,
-               upload_id
+               upload_id,
+               chunk_size
             )
             logger.debug('{}: Upload Part: {}'.format(pid,resp))
             etag = resp['ETag']

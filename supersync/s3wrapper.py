@@ -119,11 +119,11 @@ class S3Wrapper(object):
         logger.debug('Complete Multipart Upload: {}'.format(resp))
         return resp
 
-    def upload_part(self,chunk,part_number,upload_id):
+    def upload_part(self,chunk,part_number,upload_id,chunk_size):
         resp = self.client.upload_part(
            Body=chunk,
            Bucket=self.bucket,
-           ContentLength=sys.getsizeof(chunk),
+           ContentLength=chunk_size,
            Key=self.key,
            PartNumber=part_number,
            UploadId=upload_id
