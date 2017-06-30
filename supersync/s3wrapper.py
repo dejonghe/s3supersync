@@ -25,14 +25,12 @@ class S3Wrapper(object):
         return '/'.join(keys)
 
     def _check_or_create_bucket(self):
-        found = False
-        resp = self.client.list_buckets()
-        for bucket in resp['Buckets']:
-            if bucket['Name'] == self.bucket:
-                found = True
-        if not found:
+        try:
+            resp = self.client.head_bucket(Bucket=self.bucket)
+        except:
             logger.critical('Bucket {} does not exist or is not owned by you.'.format(self.bucket))
             exit(1)
+
 
     def get_object_metadata(self):
         try: 
