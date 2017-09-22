@@ -3,7 +3,7 @@
 ## Objective
 Deduplication of chunks sent to s3 by copying parts that are already available in other objects. 
 
-*NOTE* This is not an attempt to conserve storage useage on S3, infact the exact opposite, the idea is the more data you have in S3 the less you have to transfer. It's best to utilize this on a versioned bucket.
+*NOTE* This is not an attempt to conserve storage useage on S3, infact the exact opposite, the idea is the more data you have in S3 the less you have to transfer. This requires a versioned bucket.
 
 ## How it works
 In short S3SuperSync faciliates a multipart upload to S3 sending the least amount of chunks possible. It chunks files and hashes those chunks with two different hashing algorithms. The parts are tracked via a DynamoDB table where the hashes create a composite key. A location column in the DynamoDB table instructs S3SuperSync on where to find chunks that are identical to the chunk to be upload, then uses those chunks to copy from S3 to S3 rather then sending the chunk from your local site. 
