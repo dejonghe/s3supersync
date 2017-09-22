@@ -4,6 +4,8 @@ import argparse
 from supersync.logger import console_logger, logging
 from supersync.s3supersync import S3SuperSync
 
+__version__ = "0.1.0"
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Sync file changes to s3')
     parser.add_argument('local', type=str, help='Local file to be synced')

@@ -39,7 +39,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version=find_version('s3supersync', '__init__.py'),
+    version=find_version('supersync', '__init__.py'),
     #version='0.0.1',
 
     description='Deduplicated S3 sync',
@@ -126,7 +126,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            's3supersync = s3supersync:main'
+            's3supersync = supersync:main'
         ],
     },
 )
